@@ -1,4 +1,4 @@
-// Команда go-server — HTTP API пользователей, порт api.py на Go.
+// Команда server — HTTP API пользователей, порт Python-версии на Go.
 package main
 
 import (
@@ -10,6 +10,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/demosfen7/debug-and-refactor/go-server/internal/httpapi"
+	"github.com/demosfen7/debug-and-refactor/go-server/internal/store"
 )
 
 func main() {
@@ -17,15 +20,15 @@ func main() {
 	dbPath := flag.String("db", envOr("API_DB", "test.db"), "путь к файлу SQLite")
 	flag.Parse()
 
-	store, err := OpenStore(*dbPath)
+	users, err := store.Open(*dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer store.Close()
+	defer users.Close()
 
 	srv := &http.Server{
 		Addr:              *addr,
-		Handler:           NewServer(store),
+		Handler:           httpapi.NewServer(users),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
@@ -45,7 +48,7 @@ func main() {
 	case err := <-errCh:
 		// До Shutdown ListenAndServe возвращается только с настоящей ошибкой
 		// (например, порт занят).
-		store.Close()
+		users.Close()
 		log.Fatalf("listen: %v", err)
 	case <-ctx.Done():
 	}

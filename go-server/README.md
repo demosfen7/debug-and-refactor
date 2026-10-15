@@ -1,6 +1,6 @@
 # go-server
 
-HTTP API пользователей на Go — порт [`api.py`](../api.py) с тем же контрактом: те же маршруты, статусы, формат JSON и схема базы.
+HTTP API пользователей на Go — порт HTTP API из Python-пакета [`app`](../app) с тем же контрактом: те же маршруты, статусы, формат JSON и схема базы.
 
 > **Статус: код не компилировался и тесты не запускались.** Он писался на машине без Go. Перед использованием выполните шаги из раздела «Первый запуск» — `go test` покажет, всё ли в порядке.
 
@@ -44,7 +44,7 @@ go test ./...
 Запустить сервер:
 
 ```bash
-go run .
+go run ./cmd/server
 ```
 
 В логе появится `listening on http://127.0.0.1:5000 (db: test.db)`.
@@ -59,7 +59,7 @@ go run .
 Флаг важнее переменной окружения. Пример:
 
 ```bash
-go run . -addr 127.0.0.1:8080 -db users.db
+go run ./cmd/server -addr 127.0.0.1:8080 -db users.db
 ```
 
 Чтобы сервер был доступен с других машин, слушайте все интерфейсы: `-addr 0.0.0.0:8080`.
@@ -69,7 +69,7 @@ go run . -addr 127.0.0.1:8080 -db users.db
 Windows:
 
 ```bash
-go build -o go-server.exe .
+go build -o go-server.exe ./cmd/server
 ```
 
 ```bash
@@ -79,13 +79,13 @@ go build -o go-server.exe .
 Под Linux — например, для сервера — собирается прямо с Windows, cgo не нужен. В Git Bash:
 
 ```bash
-GOOS=linux GOARCH=amd64 go build -o go-server .
+GOOS=linux GOARCH=amd64 go build -o go-server ./cmd/server
 ```
 
 В PowerShell:
 
 ```powershell
-$env:GOOS='linux'; $env:GOARCH='amd64'; go build -o go-server .
+$env:GOOS='linux'; $env:GOARCH='amd64'; go build -o go-server ./cmd/server
 ```
 
 Бинарник самодостаточный: копируете один файл и запускаете.
@@ -134,16 +134,24 @@ Invoke-RestMethod http://127.0.0.1:5000/user/1
 
 ## Устройство
 
-| Файл | Что внутри |
-|------|------------|
-| `main.go` | Флаги, запуск HTTP-сервера, корректная остановка |
-| `server.go` | Маршруты, разбор запроса, JSON-ответы |
-| `store.go` | Работа с SQLite: открытие, схема, запросы |
-| `server_test.go` | Тесты — зеркало `test_api.py` |
+```
+cmd/server/main.go           точка входа: флаги, запуск, корректная остановка
+internal/
+├── model/user.go            модель User и ошибка ErrNotFound
+├── store/store.go           хранилище в SQLite: открытие, схема, запросы
+└── httpapi/                 HTTP-слой
+    ├── routes.go            маршруты и интерфейс UserStore
+    ├── handlers.go          обработчики запросов
+    ├── request.go           разбор и проверка тела запроса
+    ├── response.go          JSON-ответы
+    └── handlers_test.go     тесты — зеркало tests/test_routes_users.py
+```
+
+Слои те же, что в Python-пакете: `httpapi` ≈ `app/routes` + `app/utils/validation`, `store` ≈ `app/repositories/api_users`, `model` ≈ `app/models`. Пакет `httpapi` зависит не от `store`, а от интерфейса `UserStore` — хранилище можно подменить, например, заглушкой в тестах. Каталог `internal/` закрывает пакеты от импорта извне модуля.
 
 База работает в режиме WAL — как и в Python-версии, иначе параллельные запросы на запись упираются в `database is locked`. Поэтому рядом с файлом базы во время работы лежат `test.db-wal` и `test.db-shm`; это нормально, в git они не попадают.
 
-Схема таблицы та же, что у `api.py`, поэтому обе версии могут работать с одним файлом — укажите им одинаковый `API_DB`.
+Схема таблицы та же, что у HTTP API в Python-пакете, поэтому обе версии могут работать с одним файлом — укажите им одинаковый `API_DB`.
 
 ## Отличия от Python-версии
 

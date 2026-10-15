@@ -1,4 +1,4 @@
-package main
+package httpapi
 
 import (
 	"encoding/json"
@@ -10,17 +10,20 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/demosfen7/debug-and-refactor/go-server/internal/model"
+	"github.com/demosfen7/debug-and-refactor/go-server/internal/store"
 )
 
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
-	store, err := OpenStore(filepath.Join(t.TempDir(), "test.db"))
+	users, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Cleanup выполняется в обратном порядке: БД закроется до удаления TempDir.
-	t.Cleanup(func() { store.Close() })
-	return NewServer(store)
+	t.Cleanup(func() { users.Close() })
+	return NewServer(users)
 }
 
 func do(h http.Handler, method, path, contentType, body string) *httptest.ResponseRecorder {
@@ -38,9 +41,9 @@ func postUser(h http.Handler, name string) *httptest.ResponseRecorder {
 	return do(h, http.MethodPost, "/adduser", "application/json", string(body))
 }
 
-func decodeUser(t *testing.T, rec *httptest.ResponseRecorder) User {
+func decodeUser(t *testing.T, rec *httptest.ResponseRecorder) model.User {
 	t.Helper()
-	var u User
+	var u model.User
 	if err := json.Unmarshal(rec.Body.Bytes(), &u); err != nil {
 		t.Fatalf("decode %q: %v", rec.Body.String(), err)
 	}
@@ -65,7 +68,7 @@ func TestAddUserReturns201WithIDAndLocation(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201", rec.Code)
 	}
-	if got := decodeUser(t, rec); got != (User{ID: 1, Name: "alice"}) {
+	if got := decodeUser(t, rec); got != (model.User{ID: 1, Name: "alice"}) {
 		t.Errorf("body = %+v", got)
 	}
 	if loc := rec.Header().Get("Location"); loc != "/user/1" {
@@ -84,7 +87,7 @@ func TestGetUserReturns200(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	if got := decodeUser(t, rec); got != (User{ID: 1, Name: "alice"}) {
+	if got := decodeUser(t, rec); got != (model.User{ID: 1, Name: "alice"}) {
 		t.Errorf("body = %+v", got)
 	}
 }
@@ -189,7 +192,7 @@ func TestConcurrentRequests(t *testing.T) {
 				rec := postUser(h, fmt.Sprintf("u%d-%d", n, i))
 				mu.Lock()
 				if rec.Code == http.StatusCreated {
-					var u User
+					var u model.User
 					_ = json.Unmarshal(rec.Body.Bytes(), &u)
 					ids = append(ids, u.ID)
 				} else {

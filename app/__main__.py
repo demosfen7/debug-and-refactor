@@ -1,0 +1,6 @@
+"""Запуск сервера разработки: ``python -m app``."""
+
+from . import create_app
+
+if __name__ == "__main__":
+    create_app().run()

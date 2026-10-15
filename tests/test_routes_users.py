@@ -2,12 +2,12 @@ import threading
 
 import pytest
 
-import api
+from app import create_app
 
 
 @pytest.fixture
 def client(tmp_path):
-    app = api.create_app(tmp_path / "test.db")
+    app = create_app(tmp_path / "test.db")
     return app.test_client()
 
 

@@ -11,3 +11,4 @@ passwords.txt
 *.db-shm
 go-server/go-server
 go-server/*.exe
+go-server/server
