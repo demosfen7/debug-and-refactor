@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+node_modules/
+.next/
+.env
+.pytest_cache/
+*.db
+passwords.txt
