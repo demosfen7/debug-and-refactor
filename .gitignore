@@ -7,3 +7,7 @@ node_modules/
 .pytest_cache/
 *.db
 passwords.txt
+*.db-wal
+*.db-shm
+go-server/go-server
+go-server/*.exe
